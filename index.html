@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Platformer (I'm finally trying)</title>
+<style>
+body {
+overflow: hidden;
+}
+
+canvas {
+position: absolute;
+top: 0;
+left: 0;
+}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script>
+const canvas = document.getElementById("canvas");
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+const ctx = canvas.getContext("2d");
+
+var movingRight = false;
+var movingLeft = false;
+var upPressed = false;
+//var downPressed = false;
+
+var gravity = 0.1;
+
+setInterval(function(){update()}, 10);
+
+function rect(x, y, width, height, color) {
+this.x = x;
+this.y = y;
+this.width = width;
+this.height = height;
+this.top = this.y;
+this.bottom = this.y + this.height;
+this.left = this.x;
+this.right = this.x + this.width;
+this.state = "not jumping";
+this.velocity = 0;
+ctx.fillStyle = color;
+ctx.fillRect(x, y, width, height);
+this.draw = function(){
+ctx.fillStyle = color;
+this.top = this.y;
+this.bottom = this.y + this.height;
+this.left = this.x;
+this.right = this.x + this.width;
+if (this.state == "jumping") {
+this.velocity -= gravity;
+this.y -= player.velocity;
+}
+ctx.fillRect(this.x, this.y, this.width, this.height);
+}
+}
+
+function arc(x, y, radius, color) {
+this.x = x;
+this.y = y;
+this.radius = radius;
+ctx.fillStyle = color;
+ctx.arc(x, y, radius, 0, 2 * Math.PI);
+ctx.fill();
+this.draw = function(){
+ctx.fillStyle = color;
+ctx.beginPath();
+ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+ctx.closePath();
+ctx.fill();
+}
+}
+
+document.addEventListener("keydown", keyDownHandler);
+document.addEventListener("keyup", keyUpHandler);
+
+function keyDownHandler(e) {
+if (e.key == "Right" || e.key == "ArrowRight") {
+movingRight = true;
+}
+if (e.key == "Left" || e.key == "ArrowLeft") {
+movingLeft = true;
+}
+if (e.key == "Up" || e.key == "ArrowUp") {
+upPressed = true;
+}
+/*if (e.key == "Down" || e.key == "ArrowDown") {
+downPressed = true;
+}*/
+}
+
+function keyUpHandler(e) {
+if (e.key == "Right" || e.key == "ArrowRight") {
+movingRight = false;
+}
+if (e.key == "Left" || e.key == "ArrowLeft") {
+movingLeft = false;
+}
+if (e.key == "Up" || e.key == "ArrowUp") {
+upPressed = false;
+}
+/*if (e.key == "Down" || e.key == "ArrowDown") {
+downPressed = false;
+}*/
+}
+
+function delay(time) {
+  return new Promise(resolve => setTimeout(resolve, time));
+}
+
+function update() {
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+player.draw();
+for (let i in ground) {
+ground[i].draw();
+}
+if (movingRight) {
+player.x += 2;
+}
+if (movingLeft) {
+player.x -= 2;
+}
+/*if (downPressed) {
+player.y += 2;
+}*/
+if (player.bottom == ground[0].top && player.left < ground[0].right && player.right > ground[0].left) {
+if (upPressed) {
+player.state = "jumping";
+player.velocity = 4;
+player.y = oldy;
+}
+} else {
+if (player.state != "jumping") {
+player.y += 1;
+}
+}
+}
+
+var player = new rect(canvas.width / 2, canvas.height / 2, 10, 10, "black");
+var ground = [];
+ground.push(new rect(canvas.width / 2 - 25, canvas.height / 2 + 30, 60, 10, "black"));
+</script>
+
+</body>
+</html>
