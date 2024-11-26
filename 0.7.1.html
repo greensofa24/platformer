@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Platformer</title>
+<style>
+body {
+overflow: hidden;
+}
+
+canvas {
+position: absolute;
+top: 0;
+left: 0;
+}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script>
+const canvas = document.getElementById("canvas");
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+const ctx = canvas.getContext("2d");
+
+var level = 1;
+var levelname = {1: "Basics", 2: "Small Jumps", 3: "Spikes", 4: "Moving Blocks", 5: "Easy does it", 6: "Anti-Jumping", 7: "Spikes", 8: "End for now"};
+var leveldesc = {1: "Press s to skip.", 2: "The smaller the jump, the easier. Right?", 3: "Now you can actually die.", 4: "Getting harder.", 5: "Level 3 but a lil harder.", 6: "Press down.", 7: "This is possible.", 8: "You win (for now)."};
+
+var movingRight = false;
+var movingLeft = false;
+var upPressed = false;
+var downPressed = false;
+
+var falldirection = "down";
+var touchingground = false;
+
+var gravity = 0.1;
+
+setInterval(function(){update()}, 10);
+
+function rect(x, y, width, height, colour) {
+this.x = x;
+this.y = y;
+this.width = width;
+this.height = height;
+this.top = this.y;
+this.bottom = this.y + this.height;
+this.left = this.x;
+this.right = this.x + this.width;
+this.state = "not jumping";
+this.velocity = 0;
+this.colour = colour;
+ctx.fillStyle = colour;
+ctx.fillRect(x, y, width, height);
+this.draw = function() {
+ctx.fillStyle = this.colour;
+this.top = this.y;
+this.bottom = this.y + this.height;
+this.left = this.x;
+this.right = this.x + this.width;
+if (this.state == "jumping") {
+this.velocity -= gravity;
+this.y -= player.velocity;
+}
+ctx.fillRect(this.x, this.y, this.width, this.height);
+}
+this.touching = function(object) {
+if (this.bottom >= object.top && this.top <= object.bottom && this.left < object.right && this.right > object.left) {
+return true;
+} else {
+return false;
+}
+}
+}
+
+function block(x, y, width, height, colour) {
+this.x = x * 10;
+this.y = canvas.height - y * 10 - 20;
+this.width = width * 10;
+this.height = height * 10;
+this.top = this.y;
+this.bottom = this.y + this.height;
+this.left = this.x;
+this.right = this.x + this.width;
+this.state = "not jumping";
+this.velocity = 0;
+this.colour = colour;
+ctx.fillStyle = colour;
+ctx.fillRect(this.x, this.y, width, height);
+this.draw = function() {
+ctx.fillStyle = this.colour;
+this.top = this.y;
+this.bottom = this.y + this.height;
+this.left = this.x;
+this.right = this.x + this.width;
+if (this.state == "jumping") {
+if (falldirection == "down") {
+this.velocity -= gravity;
+}
+if (falldirection == "up") {
+this.velocity += gravity;
+}
+this.y -= player.velocity;
+}
+ctx.fillRect(this.x, this.y, this.width, this.height);
+}
+this.touching = function(object) {
+if (this.bottom >= object.top && this.top <= object.bottom && this.left < object.right && this.right > object.left) {
+return true;
+} else {
+return false;
+}
+}
+}
+
+function movingblock(x, y, x2, y2, width, height, time, colour) {
+this.x = x * 10;
+this.y = canvas.height - y * 10 - 20;
+this.x1 = this.x;
+this.y1 = this.y;
+this.x2 = x2 * 10;
+this.y2 = canvas.height - y2 * 10 - 20;
+this.width = width * 10;
+this.height = height * 10;
+this.top = this.y;
+this.bottom = this.y + this.height;
+this.left = this.x;
+this.right = this.x + this.width;
+this.state = "not jumping";
+this.velocity = 0;
+this.time = time;
+this.colour = colour;
+ctx.fillStyle = colour;
+ctx.fillRect(this.x, this.y, width, height);
+this.cycle = 0;
+this.draw = function() {
+ctx.fillStyle = this.colour;
+this.top = this.y;
+this.bottom = this.y + this.height;
+this.left = this.x;
+this.right = this.x + this.width;
+/*if (this.state == "jumping") {
+this.velocity -= gravity;
+this.y -= player.velocity;
+}*/
+if (!this.cycle) {
+this.x += (this.x2 - this.x1) / time;
+this.y += (this.y2 - this.y1) / time;
+if (this.x >= this.x2) {
+this.cycle = 1;
+}
+}
+if (this.cycle) {
+this.x += (this.x1 - this.x2) / time;
+this.y += (this.y1 - this.y2) / time;
+if (this.x < this.x1) {
+this.cycle = 0;
+}
+}
+ctx.fillRect(this.x, this.y, this.width, this.height);
+}
+this.touching = function(object) {
+if (this.bottom >= object.top && this.top <= object.bottom && this.left < object.right && this.right > object.left) {
+return true;
+} else {
+return false;
+}
+}
+}
+
+function spike(x, y, width, height, colour, direction) {
+this.x = x * 10;
+this.y = canvas.height - y * 10 - 20;
+this.width = width * 10;
+this.height = height * 10;
+this.top = this.y;
+this.bottom = this.y + this.height;
+this.left = this.x;
+this.right = this.x + this.width;
+this.colour = colour;
+ctx.beginPath();
+ctx.fillStyle = colour;
+ctx.moveTo(this.x + this.width / 2, this.y);
+ctx.lineTo(this.x + this.width, this.y + this.height);
+ctx.lineTo(this.x, this.y + this.height);
+ctx.fill();
+this.draw = function () {
+ctx.beginPath();
+ctx.fillStyle = this.colour;
+if (direction == 180) {
+ctx.moveTo(this.x + this.width, this.y);
+ctx.lineTo(this.x + this.width / 2, this.y + this.height);
+ctx.lineTo(this.x, this.y);
+ctx.fill();
+} else if (direction == 270) {
+ctx.moveTo(this.x + this.width, this.y);
+ctx.lineTo(this.x + this.width, this.y + this.height);
+ctx.lineTo(this.x, this.y + this.height / 2);
+ctx.fill();
+} else {
+ctx.moveTo(this.x + this.width / 2, this.y);
+ctx.lineTo(this.x + this.width, this.y + this.height);
+ctx.lineTo(this.x, this.y + this.height);
+ctx.fill();
+}
+}
+}
+
+function arc(x, y, radius, colour) {
+this.x = x;
+this.y = y;
+this.radius = radius;
+ctx.fillStyle = colour;
+ctx.arc(x, y, radius, 0, 2 * Math.PI);
+ctx.fill();
+this.draw = function(){
+ctx.fillStyle = colour;
+ctx.beginPath();
+ctx.arc(this.x, this.y, this.radius, 0, 2 * Math.PI);
+ctx.closePath();
+ctx.fill();
+}
+}
+
+function text(text, x, y, size, colour) {
+ctx.fillStyle = colour;
+ctx.beginPath();
+ctx.font = size + "px Comic Sans MS";
+ctx.closePath();
+ctx.fillText(text, x, y);
+this.draw = function() {
+ctx.fillStyle = colour;
+ctx.beginPath();
+ctx.font = size + "px Comic Sans MS";
+ctx.closePath();
+ctx.fillText(text, x, y);
+}
+}
+
+document.addEventListener("keydown", keyDownHandler);
+document.addEventListener("keyup", keyUpHandler);
+
+function keyDownHandler(e) {
+if (e.key == "Right" || e.key == "ArrowRight") {
+movingRight = true;
+}
+if (e.key == "Left" || e.key == "ArrowLeft") {
+movingLeft = true;
+}
+if (e.key == "Up" || e.key == "ArrowUp") {
+upPressed = true;
+}
+if (e.key == "Down" || e.key == "ArrowDown") {
+if (level >= 6) {
+downPressed = true;
+}
+}
+if (e.key == "s") {
+nextLevel();
+}
+}
+
+function keyUpHandler(e) {
+if (e.key == "Right" || e.key == "ArrowRight") {
+movingRight = false;
+}
+if (e.key == "Left" || e.key == "ArrowLeft") {
+movingLeft = false;
+}
+if (e.key == "Up" || e.key == "ArrowUp") {
+upPressed = false;
+}
+if (e.key == "Down" || e.key == "ArrowDown") {
+downPressed = false;
+}
+}
+
+function nextLevel() {
+blocks.length = 4;
+level += 1;
+leveltext = new text("Level " + level + ": " + levelname[level], 25, 40, 20, "black");
+levelsubtext = new text(leveldesc[level], 25, 65, 15, "grey");
+player.x = 0;
+player.y = canvas.height - 100;
+
+if (level == 2) {
+for (let i = 0; i < 14; i++) {
+blocks.push(new block(4 * i + 4, 4 * i + 3, 1, 1, "black"));
+}
+blocks.push(new block(60, 59, 1, 1, "lime"));
+}
+
+if (level == 3) {
+for (let i = 0; i < 9; i++) {
+blocks.push(new block(6 * i + 6, 6 * i + 5, 1, 1, "black"));
+blocks.push(new spike(6 * i + 7.5, 6 * i + 6, 1, 1, "red"));
+}
+blocks.push(new block(60, 59, 1, 1, "lime"));
+}
+
+if (level == 4) {
+for (let i = 0; i < 7; i++) {
+blocks.push(new movingblock(8 * i + 5, 8 * i + 3, 8 * i + 8, 8 * i + 7, 1, 1, 100, "black"));
+blocks.push(new movingblock(8 * i + 9, 8 * i + 11, 8 * i + 12, 8 * i + 7, 1, 1, 100, "black"));
+}
+blocks.push(new block(60, 59, 1, 1, "lime"));
+}
+
+if (level == 5) {
+for (let i = 0; i < 9; i++) {
+blocks.push(new block(6 * i + 6, 6 * i + 5, 1, 1, "black"));
+blocks.push(new spike(6 * i + 6.875, 6 * i + 6, 1, 1, "red"));
+}
+blocks.push(new block(60, 59, 1, 1, "lime"));
+}
+
+if (level == 6) {
+for (let i = 0; i < 50; i++) {
+blocks.push(new spike(10, i, 1, 1, "blueviolet"));
+}
+for (let i = 0; i < 50; i++) {
+blocks.push(new spike(20, canvas.height / 10 - i - 3, 1, 1, "blueviolet", 180));
+}
+for (let i = 0; i < 50; i++) {
+blocks.push(new spike(30, i, 1, 1, "blueviolet"));
+}
+for (let i = 0; i < 50; i++) {
+blocks.push(new spike(40, canvas.height / 10 - i - 3, 1, 1, "blueviolet", 180));
+}
+for (let i = 0; i < 50; i++) {
+blocks.push(new spike(50, i, 1, 1, "blueviolet"));
+}
+blocks.push(new block(canvas.width / 10 - 3, canvas.height / 20 - 1.5, 1, 1, "lime"));
+}
+
+if (level == 7) {
+for (let i = 0; i < 4; i++) {
+blocks.push(new block(6 * i + 6, 6 * i + 5, 1, 1, "black"));
+blocks.push(new spike(6 * i + 6, 6 * i + 4, 1, 1, "cyan", 180));
+}
+for (let i = 5; i < 30; i++) {
+blocks.push(new spike(i, 0, 1, 1, "blueviolet"));
+}
+let i = 0;
+while (i < canvas.height / 10 - 3) {
+blocks.push(new spike(30, i, 1, 1, "red", 270));
+i++;
+}
+i = 31.5;
+while (i < canvas.width / 10 - 1.5) {
+blocks.push(new spike(i, canvas.height / 10 - 3, 1, 1, "blueviolet", 180));
+i++;
+}
+blocks.push(new block(37, 50, 1, 1, "black"));
+i = 31.5;
+while (i < canvas.width / 10 - 7.5) {
+blocks.push(new spike(i, 20, 1, 1, "cyan"));
+i++;
+}
+i = canvas.width / 10 - 7;
+while (i < canvas.width / 10 - 1) {
+blocks.push(new spike(i, 20, 1, 1, "blueviolet"));
+i++;
+}
+for (let i = 0; i < 20; i++) {
+blocks.push(new spike(canvas.width / 10 - 5, i, 1, 1, "yellowgreen"));
+}
+blocks.push(new block(canvas.width / 10 - 3, 9.5, 1, 1, "lime"));
+blocks.push(new text("Jump!", canvas.width - 135, canvas.height - 105, 15, "black"));
+}
+
+};
+
+function update() {
+ctx.clearRect(0, 0, canvas.width, canvas.height);
+player.draw();
+leveltext.draw();
+levelsubtext.draw();
+for (let i in blocks) {
+blocks[i].draw();
+}
+if (movingRight) {
+player.x += 1.5;
+}
+if (movingLeft) {
+player.x -= 1.5;
+}
+/*if (downPressed) {
+player.y += 1.5;
+}*/
+
+//jump code
+
+let touching = false;
+for (let i in blocks) {
+if (player.touching(blocks[i])) {
+touching = true;
+
+if (blocks[i].colour == "black") {
+if (upPressed) {
+player.state = "jumping";
+player.velocity = 3;
+falldirection = "down";
+} else {
+if (downPressed) {
+player.state = "jumping";
+player.velocity = -3;
+falldirection = "up";
+} else {
+player.state = "not jumping";
+player.velocity = 0;
+if (touching) {
+if (falldirection == "down") {
+player.y = blocks[i].top - player.height;
+}
+if (falldirection == "up") {
+player.y = blocks[i].bottom;
+}
+}
+}
+}
+}
+} else {
+if (player.state != "jumping") {
+player.state = "jumping";
+player.velocity = 0;
+touchingground = false;
+}
+}
+
+if (blocks[i].colour == "lime" && player.touching(blocks[i])) {
+nextLevel();
+}
+
+if (blocks[i].colour == "red" && player.touching(blocks[i]) && falldirection != "up") {
+player.x = 0;
+player.y = canvas.height - 100;
+falldirection = "down";
+}
+
+if (blocks[i].colour == "cyan" && player.touching(blocks[i]) && falldirection != "down") {
+player.x = 0;
+player.y = canvas.height - 100;
+falldirection = "down";
+}
+
+if (!touching) {
+touchingground = true;
+}
+
+if (blocks[i].colour == "yellowgreen" && player.touching(blocks[i]) && touchingground) {
+player.x = 0;
+player.y = canvas.height - 100;
+falldirection = "down";
+}
+
+if (blocks[i].colour == "blueviolet" && player.touching(blocks[i])) {
+player.x = 0;
+player.y = canvas.height - 100;
+falldirection = "down";
+}
+
+if (player.touching(blocks[i])) {
+
+if (blocks[i].cycle == 0) {
+player.x += (blocks[i].x2 - blocks[i].x1) / blocks[i].time;
+player.y += (blocks[i].y2 - blocks[i].y1) / blocks[i].time;
+}
+if (blocks[i].cycle == 1) {
+player.x += (blocks[i].x1 - blocks[i].x2) / blocks[i].time;
+player.y += (blocks[i].y1 - blocks[i].y2) / blocks[i].time;
+}
+
+}
+
+if (player.x < 10) {
+player.x = 10;
+}
+
+if (player.x > canvas.width - 20) {
+player.x = canvas.width - 20;
+}
+
+if (player.y < 10) {
+if (falldirection == "up") {
+player.y = 10;
+}
+if (falldirection == "down") {
+player.y = 11;
+}
+}
+
+if (player.y >= canvas.height - 20) {
+if (falldirection == "down") {
+player.y = canvas.height - 20;
+}
+if (falldirection == "up") {
+player.y = canvas.height - 21;
+}
+}
+
+}
+}
+
+var player = new block(1, 10, 1, 1, "aquamarine");
+var blocks = [new rect(0, canvas.height - 10, canvas.width, 10, "black"), new rect(0, 0, canvas.width, 10, "black"), new rect(0, 0, 10, canvas.height, "#000000"), new rect(canvas.width - 10, 0, 10, canvas.height, "#000000")];
+for (let i = 0; i < 9; i++) {
+blocks.push(new block(6 * i + 6, 6 * i + 5, 1, 1, "black"));
+}
+blocks.push(new block(60, 59, 1, 1, "lime"));
+var leveltext = new text("Level " + level + ": " + levelname[level], 25, 40, 20, "black");
+var levelsubtext = new text(leveldesc[level], 25, 65, 15, "grey");
+</script>
+</body>
+</html>
